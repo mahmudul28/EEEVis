@@ -1,0 +1,1094 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EEVis — Interactive Electrical &amp; Electronic Engineering Visualizer</title>
+<meta name="description" content="EEVis is a central launcher for interactive Electrical &amp; Electronic Engineering visualizers: Power Electronics, Semiconductor Physics &amp; Devices, Microprocessor &amp; Interfacing, and Digital Signal Processing.">
+<meta name="theme-color" content="#06090c">
+
+<style>
+/* ============================================================
+   EEVis — design tokens
+   ============================================================ */
+:root{
+  --bg:#06090c;
+  --bg-2:#080d12;
+  --panel:rgba(255,255,255,.022);
+  --panel-2:rgba(255,255,255,.014);
+
+  --line:rgba(128,170,198,.13);
+  --line-2:rgba(128,170,198,.24);
+
+  --accent:#2fd8ff;
+  --accent-2:#8bf0ff;
+  --accent-soft:rgba(47,216,255,.10);
+  --accent-line:rgba(47,216,255,.34);
+
+  --text:#d8e4ed;
+  --text-hi:#eaf4fa;
+  --muted:#8a9fb0;
+  --faint:#5a6f7f;
+
+  --warn:#e0b872;
+  --warn-line:rgba(224,184,114,.32);
+  --warn-soft:rgba(224,184,114,.08);
+
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+
+  --radius:4px;
+  --maxw:1180px;
+  --ease:cubic-bezier(.4,0,.2,1);
+}
+
+*,*::before,*::after{ box-sizing:border-box; }
+
+html{
+  scroll-behavior:smooth;
+  scroll-padding-top:92px;
+  -webkit-text-size-adjust:100%;
+}
+
+body{
+  margin:0;
+  min-height:100vh;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  font-size:16px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+
+/* ---------- technical background ---------- */
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background-image:
+    linear-gradient(to right, rgba(120,170,200,.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(120,170,200,.05) 1px, transparent 1px);
+  background-size:64px 64px;
+  -webkit-mask-image:radial-gradient(ellipse 110% 65% at 50% 0%, #000 0%, transparent 78%);
+  mask-image:radial-gradient(ellipse 110% 65% at 50% 0%, #000 0%, transparent 78%);
+}
+body::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  background:
+    radial-gradient(760px 420px at 12% -8%, rgba(47,216,255,.09), transparent 68%),
+    radial-gradient(680px 460px at 92% 2%, rgba(47,216,255,.045), transparent 70%);
+}
+
+.site-header,main,.site-footer{ position:relative; z-index:1; }
+
+/* ---------- utilities ---------- */
+.wrap{
+  width:100%;
+  max-width:var(--maxw);
+  margin:0 auto;
+  padding:0 28px;
+}
+
+.skip-link{
+  position:absolute;
+  left:-9999px;
+  top:0;
+  z-index:200;
+  background:var(--accent);
+  color:#04121a;
+  padding:11px 16px;
+  font:600 12px/1 var(--mono);
+  letter-spacing:.08em;
+  text-decoration:none;
+}
+.skip-link:focus{ left:14px; top:14px; }
+
+:focus-visible{
+  outline:1px solid var(--accent);
+  outline-offset:3px;
+}
+
+/* ---------- reveal on scroll ---------- */
+.js .reveal{
+  opacity:0;
+  transform:translateY(16px);
+}
+.js .reveal.in-view{
+  opacity:1;
+  transform:none;
+}
+
+/* ============================================================
+   Header
+   ============================================================ */
+.site-header{
+  position:sticky;
+  top:0;
+  z-index:60;
+  background:rgba(6,9,12,.78);
+  backdrop-filter:blur(16px) saturate(140%);
+  -webkit-backdrop-filter:blur(16px) saturate(140%);
+  border-bottom:1px solid var(--line);
+}
+
+.nav{
+  height:66px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+}
+
+.brand{
+  display:inline-flex;
+  align-items:center;
+  gap:11px;
+  text-decoration:none;
+  color:var(--text-hi);
+}
+.brand-mark{
+  display:block;
+  width:26px;
+  height:26px;
+  color:var(--accent);
+  flex:none;
+}
+.brand-mark svg{ display:block; width:100%; height:100%; }
+.brand-name{
+  font:600 15px/1 var(--mono);
+  letter-spacing:.14em;
+  text-transform:uppercase;
+}
+
+.nav-links{
+  display:flex;
+  align-items:center;
+  gap:26px;
+}
+.nav-links a{
+  position:relative;
+  font:500 11px/1 var(--mono);
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:var(--muted);
+  text-decoration:none;
+  padding:6px 0;
+  transition:color .25s var(--ease);
+}
+.nav-links a::after{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  height:1px;
+  background:var(--accent);
+  transform:scaleX(0);
+  transform-origin:left;
+  transition:transform .3s var(--ease);
+}
+.nav-links a:hover{ color:var(--accent); }
+.nav-links a:hover::after{ transform:scaleX(1); }
+
+/* ============================================================
+   Hero
+   ============================================================ */
+.hero{
+  padding:104px 0 0;
+}
+
+.eyebrow{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  margin:0 0 26px;
+  font:500 10.5px/1 var(--mono);
+  letter-spacing:.26em;
+  text-transform:uppercase;
+  color:var(--accent);
+  opacity:.85;
+}
+.eyebrow-dot{
+  width:6px;
+  height:6px;
+  border-radius:50%;
+  background:var(--accent);
+  box-shadow:0 0 10px var(--accent);
+  flex:none;
+}
+
+.hero-title{
+  margin:0 0 16px;
+  font-family:var(--sans);
+  font-size:clamp(3.2rem,10vw,6.2rem);
+  font-weight:600;
+  line-height:.95;
+  letter-spacing:-.045em;
+  color:var(--text-hi);
+}
+.hero-title .t-vis{
+  color:var(--accent);
+  text-shadow:0 0 44px rgba(47,216,255,.35);
+}
+
+.hero-sub{
+  margin:0 0 26px;
+  max-width:760px;
+  font-size:clamp(1rem,2.4vw,1.3rem);
+  font-weight:400;
+  line-height:1.5;
+  letter-spacing:-.008em;
+  color:var(--muted);
+}
+
+.hero-desc{
+  margin:0 0 40px;
+  max-width:600px;
+  font-size:15px;
+  line-height:1.8;
+  color:var(--faint);
+}
+
+/* ---------- hero waveform ---------- */
+.hero-wave{
+  position:relative;
+  width:100%;
+  height:96px;
+  margin-top:34px;
+  -webkit-mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+  mask-image:linear-gradient(90deg,transparent,#000 12%,#000 88%,transparent);
+}
+.hero-wave svg{
+  display:block;
+  width:100%;
+  height:100%;
+}
+.wave-base{
+  fill:none;
+  stroke:rgba(128,170,198,.22);
+  stroke-width:1;
+  vector-effect:non-scaling-stroke;
+}
+.wave-pulse{
+  fill:none;
+  stroke:var(--accent);
+  stroke-width:1.4;
+  stroke-linecap:round;
+  vector-effect:non-scaling-stroke;
+  stroke-dasharray:180 1420;
+  filter:drop-shadow(0 0 5px rgba(47,216,255,.85));
+  animation:wave-travel 6.5s linear infinite;
+}
+@keyframes wave-travel{
+  from{ stroke-dashoffset:1600; }
+  to{ stroke-dashoffset:0; }
+}
+
+/* ============================================================
+   Courses
+   ============================================================ */
+.courses{
+  padding:96px 0 40px;
+}
+
+.section-head{
+  display:flex;
+  align-items:baseline;
+  gap:22px;
+  margin-bottom:38px;
+}
+.section-title{
+  margin:0;
+  font:600 11.5px/1 var(--mono);
+  letter-spacing:.26em;
+  text-transform:uppercase;
+  color:var(--accent);
+  flex:none;
+}
+.section-rule{
+  flex:1;
+  height:1px;
+  background:linear-gradient(90deg,var(--line-2),transparent);
+}
+.section-note{
+  flex:none;
+  font:500 10.5px/1 var(--mono);
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--faint);
+}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));
+  align-items:start;
+  gap:20px;
+}
+
+/* ---------- course card ---------- */
+.course{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  padding:28px 26px 24px;
+  border:1px solid var(--line);
+  border-radius:var(--radius);
+  background:linear-gradient(180deg, rgba(255,255,255,.024), rgba(255,255,255,.006));
+  cursor:pointer;
+  transition:
+    opacity .7s var(--ease),
+    transform .7s var(--ease),
+    border-color .35s var(--ease),
+    background .35s var(--ease),
+    box-shadow .35s var(--ease);
+}
+.course::before{
+  content:"";
+  position:absolute;
+  left:-1px;
+  right:-1px;
+  top:-1px;
+  height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  opacity:0;
+  transition:opacity .35s var(--ease);
+  pointer-events:none;
+}
+.course:hover{
+  border-color:rgba(47,216,255,.3);
+  background:linear-gradient(180deg, rgba(47,216,255,.045), rgba(255,255,255,.008));
+  box-shadow:0 20px 46px -30px rgba(47,216,255,.7);
+}
+.course:hover::before{ opacity:.8; }
+.course.open{
+  border-color:var(--accent-line);
+  background:linear-gradient(180deg, rgba(47,216,255,.055), rgba(255,255,255,.008));
+  box-shadow:0 24px 60px -34px rgba(47,216,255,.8);
+}
+.course.open::before{ opacity:1; }
+
+.course-top{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:20px;
+}
+.course-num{
+  font:600 12px/1 var(--mono);
+  letter-spacing:.18em;
+  color:var(--accent);
+  opacity:.85;
+}
+.course-icon{
+  width:26px;
+  height:26px;
+  color:var(--faint);
+  flex:none;
+  transition:color .35s var(--ease), filter .35s var(--ease);
+}
+.course-icon svg{ display:block; width:100%; height:100%; }
+.course:hover .course-icon,
+.course.open .course-icon{
+  color:var(--accent);
+  filter:drop-shadow(0 0 8px rgba(47,216,255,.45));
+}
+
+.course-title{
+  margin:0 0 8px;
+  font-size:1.16rem;
+  font-weight:600;
+  line-height:1.3;
+  letter-spacing:-.012em;
+  color:var(--text-hi);
+}
+.course-code{
+  margin:0 0 16px;
+  font:500 10px/1 var(--mono);
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  color:var(--faint);
+}
+.course-desc{
+  margin:0;
+  font-size:13.5px;
+  line-height:1.75;
+  color:var(--muted);
+}
+
+.course-foot{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-top:26px;
+  padding-top:20px;
+  border-top:1px solid var(--line);
+}
+.course-meta{
+  font:500 10px/1.4 var(--mono);
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--faint);
+}
+
+.cta{
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  flex:none;
+  padding:10px 15px;
+  border-radius:3px;
+  border:1px solid var(--accent-line);
+  background:transparent;
+  color:var(--accent);
+  font:600 10px/1 var(--mono);
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  text-decoration:none;
+  cursor:pointer;
+  transition:background .25s var(--ease), border-color .25s var(--ease), box-shadow .25s var(--ease);
+}
+.cta:hover{
+  background:var(--accent-soft);
+  border-color:rgba(47,216,255,.68);
+  box-shadow:0 0 24px -8px rgba(47,216,255,.85);
+}
+.cta-chev{
+  transition:transform .35s var(--ease);
+}
+.course.open .cta-chev{ transform:rotate(180deg); }
+
+/* ---------- expandable modules ---------- */
+.modules{
+  display:grid;
+  grid-template-rows:0fr;
+  opacity:0;
+  transition:grid-template-rows .45s var(--ease), opacity .3s var(--ease);
+}
+.course.open .modules{
+  grid-template-rows:1fr;
+  opacity:1;
+}
+.modules-inner{
+  min-height:0;
+  overflow:hidden;
+  visibility:hidden;
+  transition:visibility 0s linear .45s;
+}
+.course.open .modules-inner{
+  visibility:visible;
+  transition-delay:0s;
+}
+.modules-list{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  padding-top:16px;
+}
+
+.module{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:15px 16px;
+  border:1px solid var(--line);
+  border-radius:3px;
+  background:var(--panel-2);
+  text-decoration:none;
+  color:inherit;
+  transition:border-color .25s var(--ease), background .25s var(--ease);
+}
+.module:hover{
+  border-color:var(--accent-line);
+  background:rgba(47,216,255,.055);
+}
+.module-num{
+  flex:none;
+  font:500 10.5px/1 var(--mono);
+  letter-spacing:.12em;
+  color:var(--faint);
+  transition:color .25s var(--ease);
+}
+.module:hover .module-num{ color:var(--accent); }
+
+.module-body{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  flex:1;
+  min-width:0;
+}
+.module-title{
+  font-size:13.5px;
+  line-height:1.45;
+  color:var(--text);
+}
+.module-sub{
+  font:500 9.5px/1 var(--mono);
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:var(--accent);
+  opacity:.72;
+}
+.module:hover .module-sub{ opacity:1; }
+
+.module-arrow{
+  flex:none;
+  color:var(--faint);
+  transition:color .25s var(--ease), transform .25s var(--ease);
+}
+.module:hover .module-arrow{
+  color:var(--accent);
+  transform:translateX(3px);
+}
+
+.tag{
+  display:inline-block;
+  vertical-align:middle;
+  margin-left:7px;
+  padding:3px 7px;
+  border:1px solid var(--warn-line);
+  border-radius:2px;
+  background:var(--warn-soft);
+  color:var(--warn);
+  font:600 9px/1 var(--mono);
+  letter-spacing:.16em;
+  text-transform:uppercase;
+}
+
+/* ============================================================
+   Footer
+   ============================================================ */
+.site-footer{
+  border-top:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(255,255,255,.014),transparent);
+}
+.footer-top{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:36px;
+  padding:52px 0 40px;
+}
+.footer-brand{
+  max-width:440px;
+}
+.footer-brand .brand-name{
+  display:block;
+  margin-bottom:14px;
+  font-size:16px;
+  color:var(--text-hi);
+}
+.footer-brand p{
+  margin:0 0 10px;
+  font-size:13px;
+  line-height:1.75;
+  color:var(--faint);
+}
+.footer-links{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  align-items:flex-start;
+}
+.footer-links a{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  font:500 11px/1 var(--mono);
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--muted);
+  text-decoration:none;
+  transition:color .25s var(--ease);
+}
+.footer-links a:hover{ color:var(--accent); }
+
+.footer-bottom{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:22px 0 34px;
+  border-top:1px solid var(--line);
+  font:500 10.5px/1.6 var(--mono);
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  color:var(--faint);
+}
+.footer-bottom .dot{
+  color:var(--accent);
+  opacity:.6;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width:720px){
+  .wrap{ padding:0 20px; }
+  .hero{ padding-top:72px; }
+  .hero-wave{ height:74px; }
+  .courses{ padding-top:72px; }
+  .section-note{ display:none; }
+  .nav-links{ gap:18px; }
+  .nav-links a{ font-size:10px; letter-spacing:.14em; }
+}
+
+@media (max-width:480px){
+  .hero-title{ letter-spacing:-.035em; }
+  .course{ padding:24px 20px 20px; }
+  .course-foot{
+    flex-direction:column;
+    align-items:stretch;
+    gap:14px;
+  }
+  .cta{ justify-content:center; }
+  .course-meta{ text-align:left; }
+  .brand-mark{ width:22px; height:22px; }
+  .brand-name{ font-size:13px; }
+}
+
+/* ============================================================
+   Reduced motion
+   ============================================================ */
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior:auto; }
+  *,*::before,*::after{
+    animation-duration:.001ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;
+  }
+  .js .reveal{ opacity:1; transform:none; }
+  .wave-pulse{ display:none; }
+}
+</style>
+</head>
+
+<body id="top">
+<a class="skip-link" href="#courses">Skip to courses</a>
+
+<!-- ============================ HEADER ============================ -->
+<header class="site-header">
+  <nav class="nav wrap" aria-label="Primary">
+    <a class="brand" href="#top">
+      <span class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 28 28" fill="none">
+          <rect x="1" y="1" width="26" height="26" rx="3" stroke="currentColor" stroke-opacity=".32"/>
+          <path d="M5 15.5h3.6l2.4-6.5 3.6 11 2.4-4.5H23"
+                stroke="currentColor" stroke-width="1.4"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      <span class="brand-name">EEVis</span>
+    </a>
+
+    <div class="nav-links">
+      <a href="#courses">Courses</a>
+      <a href="https://github.com/mahmudul28">GitHub</a>
+    </div>
+  </nav>
+</header>
+
+<main>
+
+  <!-- ============================ HERO ============================ -->
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow"><span class="eyebrow-dot" aria-hidden="true"></span>EEE Visualization Suite</p>
+
+      <h1 class="hero-title">
+        <span class="t-ee">EE</span><span class="t-vis">Vis</span>
+      </h1>
+
+      <p class="hero-sub">Interactive Electrical &amp; Electronic Engineering Visualizer</p>
+
+      <p class="hero-desc">
+        Explore core EEE concepts through interactive simulations, visualizers,
+        and laboratory tools.
+      </p>
+    </div>
+
+    <div class="hero-wave" aria-hidden="true">
+      <svg viewBox="0 0 1200 90" preserveAspectRatio="none">
+        <path class="wave-base"
+              d="M0 45 H150 l14-22 20 44 16-44 14 22 H420 l16-28 22 56 18-56 16 28 H760 l14-24 20 48 16-48 14 24 H1200"/>
+        <path class="wave-pulse"
+              d="M0 45 H150 l14-22 20 44 16-44 14 22 H420 l16-28 22 56 18-56 16 28 H760 l14-24 20 48 16-48 14 24 H1200"/>
+      </svg>
+    </div>
+  </section>
+
+  <!-- ============================ COURSES ============================ -->
+  <section id="courses" class="courses" aria-labelledby="courses-title">
+    <div class="wrap">
+
+      <div class="section-head reveal">
+        <h2 class="section-title" id="courses-title">Courses</h2>
+        <span class="section-rule" aria-hidden="true"></span>
+        <span class="section-note">04 Courses · 07 Resources</span>
+      </div>
+
+      <div class="grid">
+
+        <!-- ---------- 01 · POWER ELECTRONICS ---------- -->
+        <article class="course reveal"
+                 data-href="https://mahmudul28.github.io/Power-Electronics/">
+          <div class="course-top">
+            <span class="course-num">01</span>
+            <span class="course-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 16h3.5V9h5v7h5V9h5"/>
+                <path d="M2 20h20"/>
+              </svg>
+            </span>
+          </div>
+
+          <h3 class="course-title">Power Electronics</h3>
+          <p class="course-code">Interactive Conversion Laboratory</p>
+          <p class="course-desc">
+            Switching converters, rectifiers and inverter topologies with live
+            waveform inspection and parameter sweeps.
+          </p>
+
+          <div class="course-foot">
+            <span class="course-meta">1 Visualizer</span>
+            <a class="cta" href="https://mahmudul28.github.io/Power-Electronics/">
+              <span>Launch</span>
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M3 8h9M8.5 4.5L12 8l-3.5 3.5" stroke="currentColor"
+                      stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </a>
+          </div>
+        </article>
+
+        <!-- ---------- 02 · SEMICONDUCTOR PHYSICS & DEVICES ---------- -->
+        <article class="course reveal">
+          <div class="course-top">
+            <span class="course-num">02</span>
+            <span class="course-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12h7M16 12h6"/>
+                <path d="M9 7v10l7-5z"/>
+                <path d="M16 7v10"/>
+              </svg>
+            </span>
+          </div>
+
+          <h3 class="course-title">Semiconductor Physics &amp; Devices</h3>
+          <p class="course-code">EEE-369</p>
+          <p class="course-desc">
+            Band diagrams, junctions and carrier transport — modelled and
+            explored interactively from contact potential to channel behaviour.
+          </p>
+
+          <div class="course-foot">
+            <span class="course-meta">2 Interactive Modules</span>
+            <button class="cta js-toggle" type="button"
+                    aria-expanded="false" aria-controls="modules-spd">
+              <span class="cta-label">Explore</span>
+              <svg class="cta-chev" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                <path d="M3 4.5L6 7.5l3-3" stroke="currentColor"
+                      stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="modules" id="modules-spd" aria-hidden="true">
+            <div class="modules-inner">
+              <div class="modules-list">
+
+                <a class="module"
+                   href="https://mahmudul28.github.io/Semiconductor-Physics-and-Devices/Metal-semiconductor%20%26%20semiconductor%20heterojunctions/index.html">
+                  <span class="module-num">01</span>
+                  <span class="module-body">
+                    <span class="module-title">Metal–Semiconductor &amp; Semiconductor Heterojunctions</span>
+                    <span class="module-sub">Open Visualizer</span>
+                  </span>
+                  <svg class="module-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M3 8h9M8.5 4.5L12 8l-3.5 3.5" stroke="currentColor"
+                          stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </a>
+
+                <a class="module"
+                   href="https://mahmudul28.github.io/Semiconductor-Physics-and-Devices/The%20Junction%20Field-Effect%20Transistor/">
+                  <span class="module-num">02</span>
+                  <span class="module-body">
+                    <span class="module-title">The Junction Field-Effect Transistor</span>
+                    <span class="module-sub">JFET Physics Lab</span>
+                  </span>
+                  <svg class="module-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M3 8h9M8.5 4.5L12 8l-3.5 3.5" stroke="currentColor"
+                          stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </a>
+
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ---------- 03 · MICROPROCESSOR & INTERFACING ---------- -->
+        <article class="course reveal">
+          <div class="course-top">
+            <span class="course-num">03</span>
+            <span class="course-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="7" y="7" width="10" height="10" rx="1"/>
+                <path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4"/>
+              </svg>
+            </span>
+          </div>
+
+          <h3 class="course-title">Microprocessor &amp; Interfacing</h3>
+          <p class="course-code">8086 + 8254</p>
+          <p class="course-desc">
+            Step through the internal architecture of the 8086 and configure the
+            8254 programmable interval timer in real time.
+          </p>
+
+          <div class="course-foot">
+            <span class="course-meta">2 Interactive Modules</span>
+            <button class="cta js-toggle" type="button"
+                    aria-expanded="false" aria-controls="modules-mp">
+              <span class="cta-label">Explore</span>
+              <svg class="cta-chev" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                <path d="M3 4.5L6 7.5l3-3" stroke="currentColor"
+                      stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="modules" id="modules-mp" aria-hidden="true">
+            <div class="modules-inner">
+              <div class="modules-list">
+
+                <a class="module"
+                   href="https://mahmudul28.github.io/Microprocessor/8086_architecture_visualizer.html">
+                  <span class="module-num">01</span>
+                  <span class="module-body">
+                    <span class="module-title">8086 Architecture Visualizer</span>
+                    <span class="module-sub">Open Visualizer</span>
+                  </span>
+                  <svg class="module-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M3 8h9M8.5 4.5L12 8l-3.5 3.5" stroke="currentColor"
+                          stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </a>
+
+                <a class="module"
+                   href="https://mahmudul28.github.io/Microprocessor/8254_timer.html">
+                  <span class="module-num">02</span>
+                  <span class="module-body">
+                    <span class="module-title">8254 Programmable Interval Timer</span>
+                    <span class="module-sub">Open Visualizer</span>
+                  </span>
+                  <svg class="module-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M3 8h9M8.5 4.5L12 8l-3.5 3.5" stroke="currentColor"
+                          stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </a>
+
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <!-- ---------- 04 · DIGITAL SIGNAL PROCESSING ---------- -->
+        <article class="course reveal">
+          <div class="course-top">
+            <span class="course-num">04</span>
+            <span class="course-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                   stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M2 12Q4.5 3 7 12T12 12T17 12T22 12"/>
+                <path d="M2 19h20"/>
+              </svg>
+            </span>
+          </div>
+
+          <h3 class="course-title">Digital Signal Processing</h3>
+          <p class="course-code">EEE-366</p>
+          <p class="course-desc">
+            Convolution, correlation and the discrete-time building blocks behind
+            modern filtering — computed and plotted as you type.
+          </p>
+
+          <div class="course-foot">
+            <span class="course-meta">2 Resources</span>
+            <button class="cta js-toggle" type="button"
+                    aria-expanded="false" aria-controls="modules-dsp">
+              <span class="cta-label">Explore</span>
+              <svg class="cta-chev" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                <path d="M3 4.5L6 7.5l3-3" stroke="currentColor"
+                      stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
+
+          <div class="modules" id="modules-dsp" aria-hidden="true">
+            <div class="modules-inner">
+              <div class="modules-list">
+
+                <a class="module"
+                   href="https://mahmudul28.github.io/EEE-366-DSP-/convolution_correlation.html">
+                  <span class="module-num">01</span>
+                  <span class="module-body">
+                    <span class="module-title">Convolution &amp; Correlation Engine</span>
+                    <span class="module-sub">Open Visualizer</span>
+                  </span>
+                  <svg class="module-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M3 8h9M8.5 4.5L12 8l-3.5 3.5" stroke="currentColor"
+                          stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </a>
+
+                <a class="module" href="https://github.com/mahmudul28/EEE-366-DSP-">
+                  <span class="module-num">02</span>
+                  <span class="module-body">
+                    <span class="module-title">
+                      DSP Lab Work
+                      <span class="tag">Repository</span>
+                    </span>
+                    <span class="module-sub">View on GitHub</span>
+                  </span>
+                  <svg class="module-arrow" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                    <path d="M3 8h9M8.5 4.5L12 8l-3.5 3.5" stroke="currentColor"
+                          stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </a>
+
+              </div>
+            </div>
+          </div>
+        </article>
+
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============================ FOOTER ============================ -->
+<footer class="site-footer">
+  <div class="wrap">
+
+    <div class="footer-top">
+      <div class="footer-brand">
+        <span class="brand-name">EEVis</span>
+        <p>Interactive Electrical &amp; Electronic Engineering Visualizer</p>
+        <p>Built as a collection of independent course-based engineering visualizers.</p>
+      </div>
+
+      <div class="footer-links">
+        <a href="#courses">Courses</a>
+        <a href="https://github.com/mahmudul28">GitHub ↗</a>
+      </div>
+    </div>
+
+    <div class="footer-bottom">
+      <span>© 2026 MD. Mahmudul Hasan</span>
+      <span>EEVis <span class="dot">·</span> Engineering Visualizer Suite</span>
+    </div>
+
+  </div>
+</footer>
+
+<script>
+(function () {
+  'use strict';
+
+  document.documentElement.classList.add('js');
+
+  /* ----------------------------------------------------------
+     Course cards: expand / collapse / direct launch
+     ---------------------------------------------------------- */
+  var cards = Array.prototype.slice.call(document.querySelectorAll('.course'));
+
+  function setState(card, open) {
+    var btn   = card.querySelector('.js-toggle');
+    var panel = card.querySelector('.modules');
+
+    card.classList.toggle('open', open);
+
+    if (btn) {
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+      var label = btn.querySelector('.cta-label');
+      if (label) label.textContent = open ? 'Collapse' : 'Explore';
+    }
+    if (panel) {
+      panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+    }
+  }
+
+  cards.forEach(function (card) {
+    var href     = card.getAttribute('data-href');
+    var isToggle = !!card.querySelector('.js-toggle');
+
+    function activate() {
+      if (href) {
+        window.location.href = href;
+        return;
+      }
+      if (!isToggle) return;
+
+      var willOpen = !card.classList.contains('open');
+
+      /* only one course expanded at a time */
+      cards.forEach(function (other) {
+        if (other !== card) setState(other, false);
+      });
+
+      setState(card, willOpen);
+    }
+
+    card.addEventListener('click', function (event) {
+      /* real links inside the card handle themselves */
+      if (event.target.closest && event.target.closest('a')) return;
+      activate();
+    });
+  });
+
+  /* ----------------------------------------------------------
+     Scroll reveal
+     ---------------------------------------------------------- */
+  var revealables = document.querySelectorAll('.reveal');
+
+  if ('IntersectionObserver' in window) {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('in-view');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+
+    Array.prototype.forEach.call(revealables, function (el) {
+      observer.observe(el);
+    });
+  } else {
+    Array.prototype.forEach.call(revealables, function (el) {
+      el.classList.add('in-view');
+    });
+  }
+
+})();
+</script>
+</body>
+</html>
